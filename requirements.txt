@@ -1,0 +1,5 @@
+python-binance
+gspread
+pandas
+oauth2client
+gspread_dataframe
