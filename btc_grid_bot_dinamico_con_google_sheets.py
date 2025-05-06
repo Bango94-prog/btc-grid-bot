@@ -10,10 +10,10 @@ from datetime import datetime
 API_KEY = ''  # Inserisci qui la tua API Key quando pronta
 API_SECRET = ''
 
-symbol = 'BTC/USDT'
-capital_total = 1000
-capital_grid = 800
-capital_reserve = 200
+symbol = 'BTC/USDC'
+capital_total = 500
+capital_grid = 400
+capital_reserve = 100
 emergency_threshold = 56000  # BTC sotto i 56.000€ attiva riserva
 
 min_grid_pct = 0.0075  # 0.75%
