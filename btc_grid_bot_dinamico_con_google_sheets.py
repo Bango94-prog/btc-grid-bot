@@ -96,12 +96,12 @@ def run_bot():
                         usdt_balance += net
                         send_telegram(
                             f"✅ Profitto Realizzato:
-Acquisto: {buy_price:.2f} USDT
-Vendita: {sell_price:.2f} USDT
-Profitto netto: {profit:.2f} USDT"
+Acquisto: {buy_price:.2f} USDC
+Vendita: {sell_price:.2f} USDC
+Profitto netto: {profit:.2f} USDC"
                         )
 
-        print(f"{datetime.now().strftime('%H:%M:%S')} | Prezzo: {price:.2f} | Saldo USDT: {usdt_balance:.2f}")
+        print(f"{datetime.now().strftime('%H:%M:%S')} | Prezzo: {price:.2f} | Saldo USDC: {usdt_balance:.2f}")
         time.sleep(60)
 
 # === Avvio ===
