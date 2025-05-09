@@ -117,7 +117,8 @@ import datetime
 # Configurazione Google Sheets
 SHEET_NAME = "BTC_Grid_Data"
 WORKSHEET_NAME = "Foglio1"
-CREDENTIALS_FILE = "bubbly-dominion-458720-p4-44cd6a5d8190.json"
+CREDENTIALS_FILE = "/etc/secrets/bubbly-dominion-458720-p4-44cd6a5d8190.json"
+
 
 # Connessione al foglio Google
 def connetti_google_sheet():
