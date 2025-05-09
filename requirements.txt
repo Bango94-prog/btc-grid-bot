@@ -1,5 +1,7 @@
-python-binance
+python-binance==1.0.17
 gspread
 pandas
 oauth2client
 gspread_dataframe
+google-auth
+python-dotenv
