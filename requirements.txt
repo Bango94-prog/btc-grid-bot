@@ -1,8 +1,8 @@
 streamlit
-python-binance==1.0.17
-gspread
 pandas
-oauth2client
+gspread
 gspread_dataframe
 google-auth
+oauth2client
+python-binance==1.0.17
 python-dotenv
