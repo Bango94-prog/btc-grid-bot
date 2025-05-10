@@ -95,10 +95,11 @@ def run_bot():
                         profit = net - (buy_price * amount)
                         usdt_balance += net
                         send_telegram(
-                            f"✅ Profitto Realizzato:
-Acquisto: {buy_price:.2f} USDC
-Vendita: {sell_price:.2f} USDC
-Profitto netto: {profit:.2f} USDC"
+                           f"""✅ Profitto Realizzato:
+Acquisto a {prezzo_acquisto}
+→ Vendita a {prezzo_vendita}
+= Profitto netto: {profitto:.2f} USDC"""
+
                         )
 
         print(f"{datetime.now().strftime('%H:%M:%S')} | Prezzo: {price:.2f} | Saldo USDC: {usdt_balance:.2f}")
