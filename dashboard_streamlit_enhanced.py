@@ -20,26 +20,34 @@ client = gspread.authorize(credentials)
 @st.cache_data
 def carica_dati_registro():
     sheet = client.open(GOOGLE_SHEET_NAME).worksheet(FOGLIO_REGISTRO)
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
+    raw_data = sheet.get_all_values()
 
-    # Debug: Mostra le colonne per verifica
-    st.write("**Colonne importate:**", df.columns.tolist())
+    # Prima riga = intestazioni
+    header = raw_data[0]
+    rows = raw_data[1:]
 
-    # Pulizia e conversione
-    for col in ['qty_btc', 'valore_usdc', 'profitto']:
+    df = pd.DataFrame(rows, columns=header)
+
+    # Rimuovi spazi e abbassa per evitare problemi nei nomi
+    df.columns = [col.strip().lower() for col in df.columns]
+
+    # Pulisci e converti colonne numeriche
+    colonne_numeriche = ['qty_btc', 'valore_usdc', 'profitto', 'fee', 'prezzo']
+    for col in colonne_numeriche:
         df[col] = (
-            df[col].astype(str)
-            .str.replace(",", ".", regex=False)  # Cambia la virgola in punto
-            .str.replace(" ", "", regex=False)   # Rimuove spazi bianchi
+            df[col]
+            .astype(str)
+            .str.replace(",", ".", regex=False)
+            .str.replace(" ", "", regex=False)
+            .replace("", "0")
             .astype(float)
         )
 
-    # Converte timestamp in datetime
-    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-    
-    # Assicura tipo coerente
+    # Converti il tipo (acquisto/vendita) in minuscolo
     df['tipo'] = df['tipo'].str.strip().str.lower()
+
+    # Converti il timestamp in datetime
+    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
     return df
 
