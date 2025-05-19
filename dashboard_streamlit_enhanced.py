@@ -2,6 +2,8 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import json
+import pandas as pd  # IMPORTA QUI PANDAS
+import matplotlib.pyplot as plt  # IMPORTA matplotlib
 
 # Leggi il segreto dallo streamlit secrets
 GOOGLE_SHEET_NAME = "BTC_Grid_Data"
@@ -24,37 +26,34 @@ client = gspread.authorize(credentials)
 def carica_dati_registro():
     sheet = client.open(GOOGLE_SHEET_NAME).worksheet(FOGLIO_REGISTRO)
     data = sheet.get_all_records()
-    import pandas as pd
     df = pd.DataFrame(data)
     return df
 
-def main():
-    st.title("Dashboard BTC Grid Bot")
-    df_registro = carica_dati_registro()
-    st.write(df_registro.head())
-
-if __name__ == "__main__":
-    main()
-
 def calcola_patrimonio(df, prezzo_btc_attuale):
-    # Somma BTC acquistato meno BTC venduto
     btc_acquistato = df.loc[df['tipo'] == 'acquisto', 'qty_btc'].sum()
     btc_venduto = df.loc[df['tipo'] == 'vendita', 'qty_btc'].sum()
     btc_netto = btc_acquistato - btc_venduto
 
-    # Calcolo USDC netto dal registro: somma profitti + saldo teorico USDC
     usdc_spesi = df.loc[df['tipo'] == 'acquisto', 'valore_usdc'].sum()
     usdc_ricevuti = df.loc[df['tipo'] == 'vendita', 'valore_usdc'].sum()
     usdc_netto = usdc_ricevuti - usdc_spesi
 
-    # Valore totale (BTC * prezzo attuale + USDC netto)
     patrimonio = btc_netto * prezzo_btc_attuale + usdc_netto
 
     return btc_netto, usdc_netto, patrimonio
 
 def grafico_interesse_composto(df):
-    # Ordina per data e calcola patrimonio cumulativo considerando profitto netto
+    # Controllo e conversione colonna timestamp in datetime
+    if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+    
     df = df.sort_values('timestamp')
+
+    # Controllo presenza colonna profitto
+    if 'profitto' not in df.columns:
+        st.error("La colonna 'profitto' non è presente nel dataset.")
+        return
+
     df['profitto_cumulato'] = df['profitto'].cumsum()
 
     plt.figure(figsize=(10,5))
