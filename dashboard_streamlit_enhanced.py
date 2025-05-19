@@ -26,53 +26,53 @@ if df.empty:
     st.warning("Nessun dato disponibile nel foglio 'Registro'.")
     st.stop()
 
-# Pulizia e conversione colonne
+# Pulizia dati
 df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-df["qty_btc"] = pd.to_numeric(df["qty_btc"], errors="coerce")
-df["valore_usdc"] = pd.to_numeric(df["valore_usdc"], errors="coerce")
-df["profitto"] = pd.to_numeric(df["profitto"], errors="coerce")
-df["prezzo"] = pd.to_numeric(df["prezzo"], errors="coerce")
-
+df["qty_btc"] = pd.to_numeric(df["qty_btc"].str.replace(",", "."), errors="coerce")  # attenzione alle virgole
+df["valore_usdc"] = pd.to_numeric(df["valore_usdc"].str.replace(",", "."), errors="coerce")
+df["profitto"] = pd.to_numeric(df["profitto"].str.replace(",", "."), errors="coerce")
+df["prezzo"] = pd.to_numeric(df["prezzo"].str.replace(",", "."), errors="coerce")
 df = df.sort_values("timestamp")
 
-# Funzioni per applicare segno corretto
-def segno_btc(row):
-    if row['tipo'].lower() in ['acquisto', 'buy']:
-        return row['qty_btc']    # BTC acquistati: saldo BTC aumenta
-    elif row['tipo'].lower() in ['vendita', 'sell']:
-        return -row['qty_btc']   # BTC venduti: saldo BTC diminuisce
+# Funzioni per segni corretti
+def btc_signed(row):
+    if row['tipo'].lower() == 'acquisto':
+        return row['qty_btc']          # BTC acquistati: saldo BTC + 
+    elif row['tipo'].lower() == 'vendita':
+        return -row['qty_btc']         # BTC venduti: saldo BTC -
     else:
         return 0
 
-def segno_usdc(row):
-    if row['tipo'].lower() in ['acquisto', 'buy']:
-        return -row['valore_usdc']   # USDC spesi (per acquistare BTC): saldo USDC diminuisce
-    elif row['tipo'].lower() in ['vendita', 'sell']:
-        return row['valore_usdc']    # USDC incassati (vendendo BTC): saldo USDC aumenta
+def usdc_signed(row):
+    if row['tipo'].lower() == 'acquisto':
+        return -row['valore_usdc']     # USDC spesi per comprare BTC: saldo USDC -
+    elif row['tipo'].lower() == 'vendita':
+        return row['valore_usdc']      # USDC ricevuti vendendo BTC: saldo USDC +
     else:
         return 0
 
-df['btc_signed'] = df.apply(segno_btc, axis=1)
-df['usdc_signed'] = df.apply(segno_usdc, axis=1)
+df['btc_signed'] = df.apply(btc_signed, axis=1)
+df['usdc_signed'] = df.apply(usdc_signed, axis=1)
 
-# Calcolo saldo corrente
+# Saldi attuali
 saldo_btc = df['btc_signed'].sum()
 saldo_usdc = df['usdc_signed'].sum()
 
-# Prezzo corrente (ultimo prezzo nel foglio)
-prezzo_corrente = df['prezzo'].iloc[-1] if not df['prezzo'].empty else 0
+# Prezzo corrente = prezzo dell'ultima transazione
+prezzo_corrente = df['prezzo'].iloc[-1]
 
-# Calcolo capitale totale
+# Capitale totale = USDC + BTC * prezzo_corrente
 capitale_totale = saldo_usdc + saldo_btc * prezzo_corrente
 
-# Calcolo profitto netto totale
+# Profitto netto totale (somma dei profitti nelle vendite)
 profitto_totale = df['profitto'].sum()
 
-# Interesse composto (capitale iniziale di riferimento 500)
+# Interesse composto basato su profitto cumulato, capitale iniziale 500 USDC (modifica se vuoi)
 capitale_iniziale = 500
-df["capitale_composito"] = capitale_iniziale + df["profitto"].cumsum()
+df['profitto_cumulato'] = df['profitto'].cumsum()
+df['capitale_composto'] = capitale_iniziale + df['profitto_cumulato']
 
-# Visualizzazione metriche
+# Layout dashboard
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("💰 Capitale Totale", f"{capitale_totale:.2f} USDC")
 col2.metric("📈 Profitto Netto Totale", f"{profitto_totale:.2f} USDC")
@@ -81,9 +81,10 @@ col4.metric("💵 USDC Totale", f"{saldo_usdc:.2f}")
 
 st.markdown("---")
 
-# Grafico interesse composto con filtro
+# Grafico interesse composto con filtro intervalli
 st.subheader("📊 Capitale con Interesse Composto")
 range_selector = st.selectbox("Intervallo storico:", ["Tutto", "Ultimi 7 giorni", "Ultimi 30 giorni"])
+
 if range_selector == "Ultimi 7 giorni":
     df_filtered = df[df["timestamp"] > pd.Timestamp.now() - pd.Timedelta(days=7)]
 elif range_selector == "Ultimi 30 giorni":
@@ -91,12 +92,12 @@ elif range_selector == "Ultimi 30 giorni":
 else:
     df_filtered = df
 
-st.line_chart(df_filtered.set_index("timestamp")[["capitale_composito"]])
+st.line_chart(df_filtered.set_index("timestamp")[["capitale_composto"]])
 
 # Storico operazioni
 st.subheader("📄 Storico Operazioni")
 st.dataframe(df[::-1], use_container_width=True)
 
-# DEBUG (opzionale) per controllare i segni — togli dopo verifica
-st.subheader("DEBUG - Controllo Segni Quantità")
+# DEBUG per controllare segni (opzionale)
+st.subheader("DEBUG - Controllo Segni")
 st.dataframe(df[['timestamp', 'tipo', 'qty_btc', 'btc_signed', 'valore_usdc', 'usdc_signed']].tail(10))
