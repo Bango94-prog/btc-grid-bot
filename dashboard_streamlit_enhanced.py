@@ -12,6 +12,26 @@ st.title("Dashboard BTC Grid Bot")
 GOOGLE_SHEET_NAME = "BTC_Grid_Data"
 FOGLIO_REGISTRO = "Registro"
 
+# Leggi il segreto come stringa JSON da Streamlit Secrets
+GOOGLE_CREDENTIALS = st.secrets["GOOGLE_CREDENTIALS"]
+
+@st.cache_data
+def carica_dati_registro():
+    # Carica le credenziali dal JSON
+    creds_dict = json.loads(GOOGLE_CREDENTIALS)
+    scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+    credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    client = gspread.authorize(credentials)
+
+    # Apri il foglio Google e carica il worksheet Registro
+    sheet = client.open(GOOGLE_SHEET_NAME).worksheet(FOGLIO_REGISTRO)
+    records = sheet.get_all_records()
+    df = pd.DataFrame(records)
+    return df
+
 @st.cache_data(ttl=300)
 def carica_dati_registro():
     # Carica credenziali da st.secrets (stringa JSON)
