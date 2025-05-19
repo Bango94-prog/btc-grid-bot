@@ -5,64 +5,58 @@ import json
 from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="BTC Grid Bot Dashboard", layout="wide", page_icon="📊")
-st.markdown("<h1 style='text-align: center; color: white;'>📊 BTC Grid Bot Dashboard</h1>", unsafe_allow_html=True)
+st.title("📊 BTC Grid Bot Dashboard")
 
-# ======= CREDENZIALI GOOGLE DA streamlit.secrets =======
+# Connessione a Google Sheets
 try:
     credentials_json = st.secrets["GOOGLE_CREDENTIALS"]
     creds_dict = json.loads(credentials_json)
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
-    
-    # Prendo il nome del foglio da secrets, default a "Registro"
-    sheet_name = st.secrets.get("GOOGLE_SHEET_TAB", "Registro")
-    
-    sheet = client.open(st.secrets["GOOGLE_SHEET_NAME"]).worksheet(sheet_name)
+    sheet = client.open(st.secrets["GOOGLE_SHEET_NAME"]).worksheet("Registro")  # Foglio "Registro"
     data = sheet.get_all_records()
 except Exception as e:
     st.error(f"❌ Errore connessione Google Sheets: {e}")
     st.stop()
 
-# ======= PREPARAZIONE DATI =======
 df = pd.DataFrame(data)
 
-if df.empty or df.shape[0] == 0:
-    st.warning("📭 Nessun dato disponibile nel foglio Google.")
+if df.empty:
+    st.warning("📭 Nessun dato disponibile nel foglio Google 'Registro'.")
     st.stop()
 
-df.columns = [col.lower().strip() for col in df.columns]
+# Conversione colonne
 df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-df["capitale_totale"] = pd.to_numeric(df["capitale_totale"], errors="coerce")
-df["profitto_netto"] = pd.to_numeric(df["profitto_netto"], errors="coerce")
-df["btc_qty"] = pd.to_numeric(df.get("btc_qty", 0), errors="coerce")
-df["usdt_qty"] = pd.to_numeric(df.get("usdt_qty", 0), errors="coerce")
-df = df.dropna(subset=["timestamp", "capitale_totale", "profitto_netto"])
+df["qty_btc"] = pd.to_numeric(df["qty_btc"], errors="coerce")
+df["valore_usdc"] = pd.to_numeric(df["valore_usdc"], errors="coerce")
+df["profitto"] = pd.to_numeric(df["profitto"], errors="coerce")
+df["prezzo"] = pd.to_numeric(df["prezzo"], errors="coerce")
+
+# Ordina per data
 df = df.sort_values("timestamp")
-initial_capital = 500
-df["capitale_composito"] = initial_capital + df["profitto_netto"].cumsum()
-df["profitto_percentuale"] = 100 * (df["capitale_totale"] - initial_capital) / initial_capital
 
-latest = df.iloc[-1]
-btc_qty = latest["btc_qty"]
-usdc_qty = latest["usdt_qty"]
-total_cap = latest["capitale_totale"]
-profitto_percentuale = latest["profitto_percentuale"]
+# Calcolo capitale totale
+ultimo_prezzo = df["prezzo"].iloc[-1] if not df["prezzo"].empty else 0
 
-# ======= LAYOUT AVANZATO =======
+quantita_btc = df["qty_btc"].sum()
+quantita_usdc = df["valore_usdc"].sum()
+capitale_totale = quantita_usdc + quantita_btc * ultimo_prezzo
+
+# Interesse composto a partire da capitale iniziale (es. 500 USDC)
+capitale_iniziale = 500
+df["capitale_composito"] = capitale_iniziale + df["profitto"].cumsum()
+
+# Visualizzazione metriche
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("💰 Capitale Totale", f"{total_cap:.2f} USDC")
-col2.metric("📈 Profitto Netto", f"{latest['profitto_netto']:.2f} USDC")
-col3.metric("🔄 BTC", f"{btc_qty:.6f}")
-col4.metric("💵 USDC", f"{usdc_qty:.2f}")
+col1.metric("💰 Capitale Totale", f"{capitale_totale:.2f} USDC")
+col2.metric("📈 Profitto Netto Totale", f"{df['profitto'].sum():.2f} USDC")
+col3.metric("🔄 BTC Totale", f"{quantita_btc:.6f}")
+col4.metric("💵 USDC Totale", f"{quantita_usdc:.2f}")
 
 st.markdown("---")
 
-# ======= ALERT su RISERVA < 100 USDC =======
-if usdc_qty < 100:
-    st.error("⚠️ Attenzione: la riserva USDC è scesa sotto i 100 USDC!")
-
-# ======= GRAFICO LINEA =======
+# Grafico interesse composto con filtro periodo
 st.subheader("📊 Capitale con Interesse Composto")
 range_selector = st.selectbox("Intervallo storico:", ["Tutto", "Ultimi 7 giorni", "Ultimi 30 giorni"])
 if range_selector == "Ultimi 7 giorni":
@@ -74,6 +68,6 @@ else:
 
 st.line_chart(df_filtered.set_index("timestamp")[["capitale_composito"]])
 
-# ======= STORICO OPERAZIONI =======
+# Storico operazioni
 st.subheader("📄 Storico Operazioni")
 st.dataframe(df[::-1], use_container_width=True)
