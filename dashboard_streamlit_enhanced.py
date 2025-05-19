@@ -1,103 +1,44 @@
 import streamlit as st
 import pandas as pd
 import gspread
-import json
 from google.oauth2.service_account import Credentials
 
-st.set_page_config(page_title="BTC Grid Bot Dashboard", layout="wide", page_icon="📊")
-st.title("📊 BTC Grid Bot Dashboard")
+# Configurazioni Google Sheets
+SHEET_NAME = "BTC_Grid_Data"
+FOGLIO_REGISTRO = "Registro"
+CREDENTIALS_FILE = "/etc/secrets/bubbly-dominion-458720-p4-44cd6a5d8190.json"
 
-# Connessione Google Sheets
-try:
-    credentials_json = st.secrets["GOOGLE_CREDENTIALS"]
-    creds_dict = json.loads(credentials_json)
+# Funzione per connettersi al Google Sheet
+def connetti_google_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-    sheet = client.open(st.secrets["GOOGLE_SHEET_NAME"]).worksheet("Registro")
-    data = sheet.get_all_records()
-except Exception as e:
-    st.error(f"Errore connessione Google Sheets: {e}")
-    st.stop()
+    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
+    return gspread.authorize(creds).open(SHEET_NAME)
 
-df = pd.DataFrame(data)
+# Carico i dati dal foglio Registro
+def carica_dati_registro():
+    try:
+        sheet = connetti_google_sheet().worksheet(FOGLIO_REGISTRO)
+        dati = sheet.get_all_records()
+        df = pd.DataFrame(dati)
 
-if df.empty:
-    st.warning("Nessun dato disponibile nel foglio 'Registro'.")
-    st.stop()
+        # Correzione: converti colonne numeriche, prima a stringa, poi replace, poi numerico
+        df["qty_btc"] = pd.to_numeric(df["qty_btc"].astype(str).str.replace(",", "."), errors="coerce")
+        df["prezzo"] = pd.to_numeric(df["prezzo"].astype(str).str.replace(",", "."), errors="coerce")
+        df["valore_usdc"] = pd.to_numeric(df["valore_usdc"].astype(str).str.replace(",", "."), errors="coerce")
+        df["fee"] = pd.to_numeric(df["fee"].astype(str).str.replace(",", "."), errors="coerce")
+        df["profitto"] = pd.to_numeric(df["profitto"].astype(str).str.replace(",", "."), errors="coerce")
 
-# Pulizia dati
-df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-df["qty_btc"] = pd.to_numeric(df["qty_btc"].str.replace(",", "."), errors="coerce")  # attenzione alle virgole
-df["valore_usdc"] = pd.to_numeric(df["valore_usdc"].str.replace(",", "."), errors="coerce")
-df["profitto"] = pd.to_numeric(df["profitto"].str.replace(",", "."), errors="coerce")
-df["prezzo"] = pd.to_numeric(df["prezzo"].str.replace(",", "."), errors="coerce")
-df = df.sort_values("timestamp")
+        return df
+    except Exception as e:
+        st.error(f"Errore caricamento dati: {e}")
+        return pd.DataFrame()
 
-# Funzioni per segni corretti
-def btc_signed(row):
-    if row['tipo'].lower() == 'acquisto':
-        return row['qty_btc']          # BTC acquistati: saldo BTC + 
-    elif row['tipo'].lower() == 'vendita':
-        return -row['qty_btc']         # BTC venduti: saldo BTC -
-    else:
-        return 0
+# Streamlit app
+st.title("Registro Operazioni BTC Grid Bot")
 
-def usdc_signed(row):
-    if row['tipo'].lower() == 'acquisto':
-        return -row['valore_usdc']     # USDC spesi per comprare BTC: saldo USDC -
-    elif row['tipo'].lower() == 'vendita':
-        return row['valore_usdc']      # USDC ricevuti vendendo BTC: saldo USDC +
-    else:
-        return 0
+df_registro = carica_dati_registro()
 
-df['btc_signed'] = df.apply(btc_signed, axis=1)
-df['usdc_signed'] = df.apply(usdc_signed, axis=1)
-
-# Saldi attuali
-saldo_btc = df['btc_signed'].sum()
-saldo_usdc = df['usdc_signed'].sum()
-
-# Prezzo corrente = prezzo dell'ultima transazione
-prezzo_corrente = df['prezzo'].iloc[-1]
-
-# Capitale totale = USDC + BTC * prezzo_corrente
-capitale_totale = saldo_usdc + saldo_btc * prezzo_corrente
-
-# Profitto netto totale (somma dei profitti nelle vendite)
-profitto_totale = df['profitto'].sum()
-
-# Interesse composto basato su profitto cumulato, capitale iniziale 500 USDC (modifica se vuoi)
-capitale_iniziale = 500
-df['profitto_cumulato'] = df['profitto'].cumsum()
-df['capitale_composto'] = capitale_iniziale + df['profitto_cumulato']
-
-# Layout dashboard
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("💰 Capitale Totale", f"{capitale_totale:.2f} USDC")
-col2.metric("📈 Profitto Netto Totale", f"{profitto_totale:.2f} USDC")
-col3.metric("🔄 BTC Totale", f"{saldo_btc:.6f}")
-col4.metric("💵 USDC Totale", f"{saldo_usdc:.2f}")
-
-st.markdown("---")
-
-# Grafico interesse composto con filtro intervalli
-st.subheader("📊 Capitale con Interesse Composto")
-range_selector = st.selectbox("Intervallo storico:", ["Tutto", "Ultimi 7 giorni", "Ultimi 30 giorni"])
-
-if range_selector == "Ultimi 7 giorni":
-    df_filtered = df[df["timestamp"] > pd.Timestamp.now() - pd.Timedelta(days=7)]
-elif range_selector == "Ultimi 30 giorni":
-    df_filtered = df[df["timestamp"] > pd.Timestamp.now() - pd.Timedelta(days=30)]
+if not df_registro.empty:
+    st.dataframe(df_registro)
 else:
-    df_filtered = df
-
-st.line_chart(df_filtered.set_index("timestamp")[["capitale_composto"]])
-
-# Storico operazioni
-st.subheader("📄 Storico Operazioni")
-st.dataframe(df[::-1], use_container_width=True)
-
-# DEBUG per controllare segni (opzionale)
-st.subheader("DEBUG - Controllo Segni")
-st.dataframe(df[['timestamp', 'tipo', 'qty_btc', 'btc_signed', 'valore_usdc', 'usdc_signed']].tail(10))
+    st.write("Nessun dato disponibile nel foglio Registro.")
