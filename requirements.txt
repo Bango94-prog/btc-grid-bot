@@ -7,3 +7,4 @@ oauth2client
 python-binance==1.0.17
 python-dotenv
 ccxt
+matplotlib
