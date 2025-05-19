@@ -53,17 +53,23 @@ def carica_dati_registro():
 
 
 def calcola_patrimonio(df, prezzo_btc_attuale):
-    btc_acquistato = df.loc[df['tipo'] == 'acquisto', 'qty_btc'].sum()
-    btc_venduto = df.loc[df['tipo'] == 'vendita', 'qty_btc'].sum()
+    # BTC netto
+    btc_acquistato = df[df['tipo'] == 'acquisto']['qty_btc'].sum()
+    btc_venduto = df[df['tipo'] == 'vendita']['qty_btc'].sum()
     btc_netto = btc_acquistato - btc_venduto
 
-    usdc_spesi = df.loc[df['tipo'] == 'acquisto', 'valore_usdc'].sum()
-    usdc_ricevuti = df.loc[df['tipo'] == 'vendita', 'valore_usdc'].sum()
-    usdc_netto = usdc_ricevuti - usdc_spesi
+    # USDC netto = ricevuti da vendite - spesi in acquisti + profitto
+    usdc_spesi = df[df['tipo'] == 'acquisto']['valore_usdc'].sum()
+    usdc_ricevuti = df[df['tipo'] == 'vendita']['valore_usdc'].sum()
+    profitto = df['profitto'].sum()
 
+    usdc_netto = usdc_ricevuti - usdc_spesi + profitto
+
+    # Valore totale stimato = BTC posseduti * prezzo + USDC rimanenti
     patrimonio = btc_netto * prezzo_btc_attuale + usdc_netto
 
-    return btc_netto, usdc_netto, patrimonio
+    return btc_netto, usdc_netto, profitto, patrimonio
+
 
 def grafico_interesse_composto(df, prezzo_btc_attuale):
     df = df.sort_values('timestamp').copy()
@@ -113,13 +119,13 @@ def main():
     st.write("### Ultime operazioni")
     st.dataframe(df_registro.sort_values('timestamp', ascending=False).head(15))
 
-    btc, usdc, patrimonio = calcola_patrimonio(df_registro, prezzo_btc_attuale)
-    profitto_totale = df_registro['profitto'].sum()
+   btc, usdc, profitto, patrimonio = calcola_patrimonio(df_registro, prezzo_btc_attuale)
 
-    st.write(f"**BTC netto posseduto:** {btc:.6f} BTC")
-    st.write(f"**USDC netto disponibile:** {usdc:.2f} USDC")
-    st.write(f"**Profitto netto totale:** {profitto_totale:.2f} USDC")
-    st.write(f"**Patrimonio totale stimato:** {patrimonio:.2f} USDC")
+st.write(f"**BTC netto posseduto:** {btc:.6f} BTC")
+st.write(f"**USDC netto disponibile (incluso profitto):** {usdc:.2f} USDC")
+st.write(f"**Profitto netto totale:** {profitto:.2f} USDC")
+st.write(f"**Patrimonio totale stimato:** {patrimonio:.2f} USDC")
+
 
     grafico_interesse_composto(df_registro, prezzo_btc_attuale)
 
