@@ -33,25 +33,32 @@ df["valore_usdc"] = pd.to_numeric(df["valore_usdc"], errors="coerce")
 df["profitto"] = pd.to_numeric(df["profitto"], errors="coerce")
 df["prezzo"] = pd.to_numeric(df["prezzo"], errors="coerce")
 
-# Ordina per data
 df = df.sort_values("timestamp")
 
-# Determinare segno quantità in base a tipo operazione (ad esempio "acquisto" o "vendita")
-# Qui devi adattare in base a come hai definito il tipo in 'tipo'
-def segno_qty(row):
+# Segno quantità BTC e valore USDC in base a tipo operazione
+# Se 'acquisto' => BTC aumenta, USDC diminuisce
+# Se 'vendita' => BTC diminuisce, USDC aumenta
+
+def get_signed_qty(row):
     if row['tipo'].lower() in ['acquisto', 'buy']:
-        return 1
+        return row['qty_btc']  # BTC positivo
     elif row['tipo'].lower() in ['vendita', 'sell']:
-        return -1
+        return -row['qty_btc']  # BTC negativo
     else:
         return 0
 
-df['segno'] = df.apply(segno_qty, axis=1)
+def get_signed_usdc(row):
+    if row['tipo'].lower() in ['acquisto', 'buy']:
+        return -row['valore_usdc']  # USDC esce, negativo
+    elif row['tipo'].lower() in ['vendita', 'sell']:
+        return row['valore_usdc']  # USDC entra, positivo
+    else:
+        return 0
 
-# Calcolo saldo BTC e USDC correnti
-df['qty_btc_signed'] = df['qty_btc'] * df['segno']
-df['valore_usdc_signed'] = df['valore_usdc'] * (-df['segno'])  # supponendo che se compro BTC esco USDC, e viceversa
+df['qty_btc_signed'] = df.apply(get_signed_qty, axis=1)
+df['valore_usdc_signed'] = df.apply(get_signed_usdc, axis=1)
 
+# Calcolo saldo BTC e USDC correnti sommando quantità firmate
 saldo_btc = df['qty_btc_signed'].sum()
 saldo_usdc = df['valore_usdc_signed'].sum()
 
