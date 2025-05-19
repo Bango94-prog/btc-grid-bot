@@ -23,18 +23,26 @@ def carica_dati_registro():
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
 
-    # Normalizza i numeri (virgole → punti decimali)
-    cols_da_convertire = ['qty_btc', 'valore_usdc', 'profitto']
-    for col in cols_da_convertire:
-        df[col] = df[col].astype(str).str.replace(',', '.').astype(float)
+    # Debug: Mostra le colonne per verifica
+    st.write("**Colonne importate:**", df.columns.tolist())
 
-    # Timestamp in formato datetime
+    # Pulizia e conversione
+    for col in ['qty_btc', 'valore_usdc', 'profitto']:
+        df[col] = (
+            df[col].astype(str)
+            .str.replace(",", ".", regex=False)  # Cambia la virgola in punto
+            .str.replace(" ", "", regex=False)   # Rimuove spazi bianchi
+            .astype(float)
+        )
+
+    # Converte timestamp in datetime
     df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-
-    # Normalizza la colonna tipo
+    
+    # Assicura tipo coerente
     df['tipo'] = df['tipo'].str.strip().str.lower()
 
     return df
+
 
 def calcola_patrimonio(df, prezzo_btc_attuale):
     btc_acquistato = df.loc[df['tipo'] == 'acquisto', 'qty_btc'].sum()
