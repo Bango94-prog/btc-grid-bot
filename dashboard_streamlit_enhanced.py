@@ -14,7 +14,11 @@ try:
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
-    sheet = client.open(st.secrets["GOOGLE_SHEET_NAME"]).worksheet("Foglio1")
+    
+    # Prendo il nome del foglio da secrets, default a "Registro"
+    sheet_name = st.secrets.get("GOOGLE_SHEET_TAB", "Registro")
+    
+    sheet = client.open(st.secrets["GOOGLE_SHEET_NAME"]).worksheet(sheet_name)
     data = sheet.get_all_records()
 except Exception as e:
     st.error(f"❌ Errore connessione Google Sheets: {e}")
