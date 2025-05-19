@@ -119,12 +119,15 @@ def main():
     st.write("### Ultime operazioni")
     st.dataframe(df_registro.sort_values('timestamp', ascending=False).head(15))
 
-   btc, usdc, profitto, patrimonio = calcola_patrimonio(df_registro, prezzo_btc_attuale)
+    btc, usdc, profitto, patrimonio = calcola_patrimonio(df_registro, prezzo_btc_attuale)
 
-st.write(f"**BTC netto posseduto:** {btc:.6f} BTC")
-st.write(f"**USDC netto disponibile (incluso profitto):** {usdc:.2f} USDC")
-st.write(f"**Profitto netto totale:** {profitto:.2f} USDC")
-st.write(f"**Patrimonio totale stimato:** {patrimonio:.2f} USDC")
+    st.write(f"**BTC netto posseduto:** {btc:.6f} BTC")
+    st.write(f"**USDC netto disponibile (incluso profitto):** {usdc:.2f} USDC")
+    st.write(f"**Profitto netto totale:** {profitto:.2f} USDC")
+    st.write(f"**Patrimonio totale stimato:** {patrimonio:.2f} USDC")
+
+    grafico_interesse_composto(df_registro, prezzo_btc_attuale)
+
 
 
     grafico_interesse_composto(df_registro, prezzo_btc_attuale)
