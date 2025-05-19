@@ -1,53 +1,40 @@
 import streamlit as st
-import json
 import gspread
 from google.oauth2.service_account import Credentials
-import pandas as pd
-import matplotlib.pyplot as plt
-from datetime import datetime
+import json
 
-st.title("Dashboard BTC Grid Bot")
-
-# Configurazioni
+# Leggi il segreto dallo streamlit secrets
 GOOGLE_SHEET_NAME = "BTC_Grid_Data"
 FOGLIO_REGISTRO = "Registro"
 
-# Leggi il segreto come stringa JSON da Streamlit Secrets
-GOOGLE_CREDENTIALS = st.secrets["GOOGLE_CREDENTIALS"]
+# Decodifica il JSON dalle secrets
+credentials_json = st.secrets["GOOGLE_CREDENTIALS"]
+credentials_dict = json.loads(credentials_json)
+
+# Crea credenziali con i permessi giusti
+scopes = ['https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive']
+
+credentials = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
+
+# Crea client gspread
+client = gspread.authorize(credentials)
 
 @st.cache_data
 def carica_dati_registro():
-    # Carica le credenziali dal JSON
-    creds_dict = json.loads(GOOGLE_CREDENTIALS)
-    scopes = [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive'
-    ]
-    credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    client = gspread.authorize(credentials)
-
-    # Apri il foglio Google e carica il worksheet Registro
     sheet = client.open(GOOGLE_SHEET_NAME).worksheet(FOGLIO_REGISTRO)
-    records = sheet.get_all_records()
-    df = pd.DataFrame(records)
+    data = sheet.get_all_records()
+    import pandas as pd
+    df = pd.DataFrame(data)
     return df
 
-@st.cache_data(ttl=300)
-def carica_dati_registro():
-    # Carica credenziali da st.secrets (stringa JSON)
-    creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-    creds = Credentials.from_service_account_info(creds_dict)
-    client = gspread.authorize(creds)
+def main():
+    st.title("Dashboard BTC Grid Bot")
+    df_registro = carica_dati_registro()
+    st.write(df_registro.head())
 
-    # Apri foglio e leggi dati
-    sheet = client.open(GOOGLE_SHEET_NAME).worksheet(FOGLIO_REGISTRO)
-    records = sheet.get_all_records()
-
-    # Converte in DataFrame e sistema le date
-    df = pd.DataFrame(records)
-    if not df.empty:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-    return df
+if __name__ == "__main__":
+    main()
 
 def calcola_patrimonio(df, prezzo_btc_attuale):
     # Somma BTC acquistato meno BTC venduto
